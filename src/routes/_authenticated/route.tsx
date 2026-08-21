@@ -17,8 +17,12 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated")({
+  // A sessão vive no localStorage: o servidor não consegue lê-la, então este
+  // layout renderiza apenas no cliente para evitar flash/loop de redirecionamento.
+  ssr: false,
   component: AuthLayout,
 });
+
 
 function AuthLayout() {
   const { session, loading, role, nome, signOut } = useAuth();
