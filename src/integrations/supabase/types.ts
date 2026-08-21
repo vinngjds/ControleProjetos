@@ -62,38 +62,76 @@ export type Database = {
       projects: {
         Row: {
           analista_id: string | null
+          categoria: string | null
           created_at: string
-          data_entrega: string
+          data_entrega: string | null
           data_inicio: string
           descricao: string | null
+          esforco_estrutura: number | null
+          esforco_etl: number | null
+          esforco_tempo: number | null
+          esforco_visual: number | null
           id: string
+          impacto_abrangencia: number | null
+          impacto_criticidade: number | null
+          impacto_decisao: number | null
+          impacto_eficiencia: number | null
           nome: string
+          projeto_relacionado_id: string | null
           status: string
           updated_at: string
         }
         Insert: {
           analista_id?: string | null
+          categoria?: string | null
           created_at?: string
-          data_entrega: string
+          data_entrega?: string | null
           data_inicio?: string
           descricao?: string | null
+          esforco_estrutura?: number | null
+          esforco_etl?: number | null
+          esforco_tempo?: number | null
+          esforco_visual?: number | null
           id?: string
+          impacto_abrangencia?: number | null
+          impacto_criticidade?: number | null
+          impacto_decisao?: number | null
+          impacto_eficiencia?: number | null
           nome: string
+          projeto_relacionado_id?: string | null
           status?: string
           updated_at?: string
         }
         Update: {
           analista_id?: string | null
+          categoria?: string | null
           created_at?: string
-          data_entrega?: string
+          data_entrega?: string | null
           data_inicio?: string
           descricao?: string | null
+          esforco_estrutura?: number | null
+          esforco_etl?: number | null
+          esforco_tempo?: number | null
+          esforco_visual?: number | null
           id?: string
+          impacto_abrangencia?: number | null
+          impacto_criticidade?: number | null
+          impacto_decisao?: number | null
+          impacto_eficiencia?: number | null
           nome?: string
+          projeto_relacionado_id?: string | null
           status?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "projects_projeto_relacionado_id_fkey"
+            columns: ["projeto_relacionado_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       stages: {
         Row: {
@@ -138,6 +176,7 @@ export type Database = {
       }
       subtasks: {
         Row: {
+          assigned_to: string | null
           concluida: boolean
           created_at: string
           id: string
@@ -146,6 +185,7 @@ export type Database = {
           titulo: string
         }
         Insert: {
+          assigned_to?: string | null
           concluida?: boolean
           created_at?: string
           id?: string
@@ -154,6 +194,7 @@ export type Database = {
           titulo: string
         }
         Update: {
+          assigned_to?: string | null
           concluida?: boolean
           created_at?: string
           id?: string
