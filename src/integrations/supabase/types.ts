@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      attachments: {
+        Row: {
+          created_at: string
+          id: string
+          mime_type: string | null
+          nome: string
+          stage_id: string
+          storage_path: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mime_type?: string | null
+          nome: string
+          stage_id: string
+          storage_path: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mime_type?: string | null
+          nome?: string
+          stage_id?: string
+          storage_path?: string
+        }
+        Relationships: []
+      }
       projects: {
         Row: {
           created_at: string
@@ -55,6 +82,7 @@ export type Database = {
           id: string
           nome: string
           ordem: number
+          peso: number
           project_id: string
         }
         Insert: {
@@ -64,6 +92,7 @@ export type Database = {
           id?: string
           nome: string
           ordem?: number
+          peso?: number
           project_id: string
         }
         Update: {
@@ -73,6 +102,7 @@ export type Database = {
           id?: string
           nome?: string
           ordem?: number
+          peso?: number
           project_id?: string
         }
         Relationships: [
@@ -124,8 +154,8 @@ export type Database = {
         Row: {
           created_at: string
           descricao: string | null
-          horas_estimadas: number
-          horas_trabalhadas: number
+          dias_estimados: number
+          dias_trabalhados: number
           id: string
           ordem: number
           stage_id: string
@@ -136,8 +166,8 @@ export type Database = {
         Insert: {
           created_at?: string
           descricao?: string | null
-          horas_estimadas?: number
-          horas_trabalhadas?: number
+          dias_estimados?: number
+          dias_trabalhados?: number
           id?: string
           ordem?: number
           stage_id: string
@@ -148,8 +178,8 @@ export type Database = {
         Update: {
           created_at?: string
           descricao?: string | null
-          horas_estimadas?: number
-          horas_trabalhadas?: number
+          dias_estimados?: number
+          dias_trabalhados?: number
           id?: string
           ordem?: number
           stage_id?: string
