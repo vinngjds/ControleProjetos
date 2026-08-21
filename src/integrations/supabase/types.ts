@@ -14,7 +14,124 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      projects: {
+        Row: {
+          created_at: string
+          data_entrega: string
+          data_inicio: string
+          descricao: string | null
+          id: string
+          nome: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_entrega: string
+          data_inicio?: string
+          descricao?: string | null
+          id?: string
+          nome: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_entrega?: string
+          data_inicio?: string
+          descricao?: string | null
+          id?: string
+          nome?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      stages: {
+        Row: {
+          created_at: string
+          data_prevista_fim: string | null
+          data_prevista_inicio: string | null
+          id: string
+          nome: string
+          ordem: number
+          project_id: string
+        }
+        Insert: {
+          created_at?: string
+          data_prevista_fim?: string | null
+          data_prevista_inicio?: string | null
+          id?: string
+          nome: string
+          ordem?: number
+          project_id: string
+        }
+        Update: {
+          created_at?: string
+          data_prevista_fim?: string | null
+          data_prevista_inicio?: string | null
+          id?: string
+          nome?: string
+          ordem?: number
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stages_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          horas_estimadas: number
+          horas_trabalhadas: number
+          id: string
+          ordem: number
+          stage_id: string
+          status: string
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          horas_estimadas?: number
+          horas_trabalhadas?: number
+          id?: string
+          ordem?: number
+          stage_id: string
+          status?: string
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          horas_estimadas?: number
+          horas_trabalhadas?: number
+          id?: string
+          ordem?: number
+          stage_id?: string
+          status?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
