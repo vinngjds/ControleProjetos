@@ -41,8 +41,27 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          created_at: string
+          id: string
+          nome: string | null
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          nome?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nome?: string | null
+        }
+        Relationships: []
+      }
       projects: {
         Row: {
+          analista_id: string | null
           created_at: string
           data_entrega: string
           data_inicio: string
@@ -53,6 +72,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          analista_id?: string | null
           created_at?: string
           data_entrega: string
           data_inicio?: string
@@ -63,6 +83,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          analista_id?: string | null
           created_at?: string
           data_entrega?: string
           data_inicio?: string
@@ -152,7 +173,10 @@ export type Database = {
       }
       tasks: {
         Row: {
+          assigned_to: string | null
           created_at: string
+          data_conclusao: string | null
+          data_inicio_real: string | null
           descricao: string | null
           dias_estimados: number
           dias_trabalhados: number
@@ -164,7 +188,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          assigned_to?: string | null
           created_at?: string
+          data_conclusao?: string | null
+          data_inicio_real?: string | null
           descricao?: string | null
           dias_estimados?: number
           dias_trabalhados?: number
@@ -176,7 +203,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          assigned_to?: string | null
           created_at?: string
+          data_conclusao?: string | null
+          data_inicio_real?: string | null
           descricao?: string | null
           dias_estimados?: number
           dias_trabalhados?: number
@@ -197,15 +227,47 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_project_analyst: {
+        Args: { _project_id: string; _user_id: string }
+        Returns: boolean
+      }
+      tick_task_progress: { Args: never; Returns: undefined }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "coordenador" | "analista"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -332,6 +394,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["coordenador", "analista"],
+    },
   },
 } as const
