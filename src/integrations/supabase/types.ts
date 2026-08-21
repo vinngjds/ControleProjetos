@@ -138,6 +138,7 @@ export type Database = {
           created_at: string
           data_prevista_fim: string | null
           data_prevista_inicio: string | null
+          duracao_dias: number
           id: string
           nome: string
           ordem: number
@@ -148,6 +149,7 @@ export type Database = {
           created_at?: string
           data_prevista_fim?: string | null
           data_prevista_inicio?: string | null
+          duracao_dias?: number
           id?: string
           nome: string
           ordem?: number
@@ -158,6 +160,7 @@ export type Database = {
           created_at?: string
           data_prevista_fim?: string | null
           data_prevista_inicio?: string | null
+          duracao_dias?: number
           id?: string
           nome?: string
           ordem?: number

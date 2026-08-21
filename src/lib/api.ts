@@ -451,6 +451,63 @@ export async function applyStageDistribution(project: ProjectFull) {
   await Promise.all(Object.entries(dist).map(([id, d]) => updateStage(id, d)));
 }
 
+// ---------- Gantt por duração (eixo fixo, arrastável) ----------
+export const GANTT_AXIS_WEEKS = 10;
+export const GANTT_DAYS_PER_WEEK = 5;
+export const GANTT_AXIS_DAYS = GANTT_AXIS_WEEKS * GANTT_DAYS_PER_WEEK; // 50
+
+export function formatDurationShort(days: number) {
+  const weeks = Math.floor(days / GANTT_DAYS_PER_WEEK);
+  const rem = days % GANTT_DAYS_PER_WEEK;
+  if (weeks > 0 && rem > 0) return `${weeks}s e ${rem}d`;
+  if (weeks > 0) return `${weeks}s`;
+  return `${rem}d`;
+}
+
+export function formatDurationAsWeeks(days: number) {
+  const weeks = Math.floor(days / GANTT_DAYS_PER_WEEK);
+  const rem = days % GANTT_DAYS_PER_WEEK;
+  if (weeks > 0 && rem > 0)
+    return `${weeks} ${weeks === 1 ? "semana" : "semanas"} e ${rem} ${rem === 1 ? "dia" : "dias"}`;
+  if (weeks > 0) return `${weeks} ${weeks === 1 ? "semana" : "semanas"}`;
+  return `${rem} ${rem === 1 ? "dia" : "dias"}`;
+}
+
+/**
+ * Calcula as datas reais (data_prevista_inicio/fim) de cada etapa a partir de uma
+ * data de início do projeto e da duração (em dias úteis) de cada etapa, posicionando-as
+ * sequencialmente (uma começa no dia útil seguinte ao fim da anterior).
+ */
+export function distributeStageDatesFromDurations(
+  projectStart: string,
+  stages: { id: string; duracao_dias: number; ordem: number }[],
+): Record<string, { data_prevista_inicio: string; data_prevista_fim: string }> {
+  const ordered = [...stages].sort((a, b) => a.ordem - b.ordem);
+  const result: Record<string, { data_prevista_inicio: string; data_prevista_fim: string }> = {};
+
+  let cursor = nextBusinessDay(new Date(projectStart + "T00:00:00Z"));
+  ordered.forEach((s) => {
+    const dur = Math.max(1, s.duracao_dias);
+    const sd = nextBusinessDay(cursor);
+    const ed = addBusinessDays(sd, dur - 1);
+    result[s.id] = { data_prevista_inicio: iso(sd), data_prevista_fim: iso(ed) };
+    cursor = addBusinessDays(ed, 1);
+  });
+  return result;
+}
+
+/**
+ * Aprova o cronograma: calcula e persiste as datas reais de cada etapa a partir das
+ * durações definidas no Gantt (arrastáveis) e da data de início do projeto.
+ */
+export async function approveScheduleFromDurations(project: ProjectFull) {
+  const dist = distributeStageDatesFromDurations(
+    project.data_inicio,
+    project.stages.map((s) => ({ id: s.id, duracao_dias: s.duracao_dias, ordem: s.ordem })),
+  );
+  await Promise.all(Object.entries(dist).map(([id, d]) => updateStage(id, d)));
+}
+
 // ---------- Esforço x Impacto ----------
 export const ESFORCO_QUESTIONS = [
   { key: "esforco_estrutura", label: "Estrutura dos Dados", levels: ["Baixa", "Moderada", "Alta"] },

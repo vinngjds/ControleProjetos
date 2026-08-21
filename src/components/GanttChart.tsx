@@ -1,70 +1,61 @@
-import { useMemo } from "react";
-import { differenceInDays, parseISO, format, max, min, addDays } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { useMemo, useRef, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import type { ProjectFull } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import {
+  approveScheduleFromDurations,
+  formatDurationAsWeeks,
+  formatDurationShort,
+  GANTT_AXIS_DAYS,
+  GANTT_AXIS_WEEKS,
+  GANTT_DAYS_PER_WEEK,
+  updateStage,
+  type ProjectFull,
+} from "@/lib/api";
+import { toast } from "sonner";
+
+const LABEL_W = 150;
+const FORECAST_W = 96;
 
 export function GanttChart({ project }: { project: ProjectFull }) {
-  const data = useMemo(() => {
-    const projStart = parseISO(project.data_inicio);
-    const projEnd = parseISO(project.data_entrega ?? project.data_inicio);
+  const qc = useQueryClient();
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["project", project.id] });
 
-    const stagesWithDates = project.stages.map((stage, i) => {
-      const total = project.stages.length || 1;
-      const span = Math.max(1, differenceInDays(projEnd, projStart));
-      const fallbackStart = new Date(projStart);
-      fallbackStart.setDate(projStart.getDate() + Math.floor((span * i) / total));
-      const fallbackEnd = new Date(projStart);
-      fallbackEnd.setDate(projStart.getDate() + Math.floor((span * (i + 1)) / total));
+  const orderedStages = useMemo(
+    () => [...project.stages].sort((a, b) => a.ordem - b.ordem),
+    [project.stages],
+  );
 
-      const start = stage.data_prevista_inicio
-        ? parseISO(stage.data_prevista_inicio)
-        : fallbackStart;
-      const end = stage.data_prevista_fim ? parseISO(stage.data_prevista_fim) : fallbackEnd;
+  // Estado local de duração por etapa, para o arraste ficar fluido sem esperar o servidor.
+  const [durations, setDurations] = useState<Record<string, number>>(() =>
+    Object.fromEntries(orderedStages.map((s) => [s.id, Math.max(1, s.duracao_dias || 5)])),
+  );
 
-      const totalD = stage.tasks.reduce((a, t) => a + Number(t.dias_estimados), 0);
-      const doneD = stage.tasks.reduce(
-        (a, t) =>
-          a + (t.status === "feito" ? Number(t.dias_estimados) : Number(t.dias_trabalhados)),
-        0,
-      );
-      const pct = totalD > 0 ? (doneD / totalD) * 100 : 0;
-      return { stage, start, end, pct };
-    });
+  const persistDuration = useMutation({
+    mutationFn: ({ id, duracao_dias }: { id: string; duracao_dias: number }) =>
+      updateStage(id, { duracao_dias }),
+    onSuccess: invalidate,
+  });
 
-    const allDates = stagesWithDates.flatMap((s) => [s.start, s.end]);
-    const rangeStart = allDates.length ? min([projStart, ...allDates]) : projStart;
-    const rangeEnd = allDates.length ? max([projEnd, ...allDates]) : projEnd;
-    const totalDays = Math.max(1, differenceInDays(rangeEnd, rangeStart));
+  const approve = useMutation({
+    mutationFn: () =>
+      approveScheduleFromDurations({
+        ...project,
+        stages: orderedStages.map((s) => ({
+          ...s,
+          duracao_dias: durations[s.id] ?? s.duracao_dias,
+        })),
+      }),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Cronograma aprovado — datas calculadas a partir do início do projeto");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
-    return { stagesWithDates, rangeStart, rangeEnd, totalDays };
-  }, [project]);
+  const ticksRef = useRef<HTMLDivElement>(null);
 
-  const today = new Date();
-  const todayOffset = differenceInDays(today, data.rangeStart);
-  const todayPct = (todayOffset / data.totalDays) * 100;
-  const showToday = todayPct >= 0 && todayPct <= 100;
-
-  // Weekend bands (subtle background stripes)
-  const weekends = useMemo(() => {
-    const out: { left: number; width: number }[] = [];
-    const cursor = new Date(data.rangeStart);
-    while (cursor <= data.rangeEnd) {
-      const w = cursor.getDay();
-      if (w === 6) {
-        const off = differenceInDays(cursor, data.rangeStart);
-        out.push({
-          left: (off / data.totalDays) * 100,
-          width: (2 / data.totalDays) * 100,
-        });
-      }
-      cursor.setDate(cursor.getDate() + 1);
-    }
-    return out;
-  }, [data.rangeStart, data.rangeEnd, data.totalDays]);
-
-  if (project.stages.length === 0) {
+  if (orderedStages.length === 0) {
     return (
       <Card className="p-10 text-center text-sm text-muted-foreground">
         Crie etapas para visualizar o cronograma.
@@ -72,145 +63,155 @@ export function GanttChart({ project }: { project: ProjectFull }) {
     );
   }
 
-  // Build month markers
-  const months: { label: string; pct: number }[] = [];
-  const cursor = new Date(data.rangeStart);
-  cursor.setDate(1);
-  while (cursor <= data.rangeEnd) {
-    const off = differenceInDays(cursor, data.rangeStart);
-    const pct = (off / data.totalDays) * 100;
-    if (pct >= 0) months.push({ label: format(cursor, "MMM yy", { locale: ptBR }), pct });
-    cursor.setMonth(cursor.getMonth() + 1);
+  // Offset acumulado (em dias) de cada etapa: uma começa onde a anterior termina.
+  let cursor = 0;
+  const rows = orderedStages.map((stage) => {
+    const dur = durations[stage.id] ?? stage.duracao_dias;
+    const offset = cursor;
+    cursor += dur;
+    return { stage, dur, offset };
+  });
+  const totalDays = cursor;
+
+  function handleDrag(stageId: string, startClientX: number, originalDuration: number) {
+    const axisPxWidth = ticksRef.current?.getBoundingClientRect().width ?? 1;
+    const dayPx = axisPxWidth / GANTT_AXIS_DAYS;
+
+    function onMove(ev: PointerEvent) {
+      const deltaPx = ev.clientX - startClientX;
+      const deltaDays = Math.round(deltaPx / dayPx);
+      let newDur = Math.max(1, originalDuration + deltaDays);
+      const otherTotal = orderedStages.reduce(
+        (sum, s) => (s.id === stageId ? sum : sum + (durations[s.id] ?? s.duracao_dias)),
+        0,
+      );
+      if (otherTotal + newDur > GANTT_AXIS_DAYS) newDur = Math.max(1, GANTT_AXIS_DAYS - otherTotal);
+      setDurations((prev) => ({ ...prev, [stageId]: newDur }));
+    }
+    function onUp() {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      setDurations((prev) => {
+        const finalDur = prev[stageId] ?? originalDuration;
+        persistDuration.mutate({ id: stageId, duracao_dias: finalDur });
+        return prev;
+      });
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
   }
 
-  const LABEL_W = 176; // px reservado para o nome da etapa
-
   return (
-    <Card className="overflow-hidden p-6">
-      <div className="mb-4 flex items-center justify-between text-xs text-muted-foreground">
-        <span className="tabular-nums">
-          {format(data.rangeStart, "dd MMM yyyy", { locale: ptBR })}
-        </span>
-        <span className="tabular-nums">
-          {format(data.rangeEnd, "dd MMM yyyy", { locale: ptBR })}
-        </span>
+    <Card className="p-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-secondary p-4">
+        <p className="max-w-md text-sm text-secondary-foreground">
+          Cronograma pronto? Aprove para definir a data de início e calcular a previsão de entrega
+          automaticamente.
+        </p>
+        <Button onClick={() => approve.mutate()} disabled={approve.isPending}>
+          Aprovar Cronograma
+        </Button>
       </div>
 
-      <div className="relative" style={{ paddingLeft: LABEL_W }}>
-        {/* Track background com gradiente sutil + faixas de fim de semana */}
-        <div className="pointer-events-none absolute inset-y-0 left-[176px] right-0">
-          <div className="absolute inset-0 rounded-lg bg-gradient-to-b from-muted/20 via-muted/10 to-muted/20" />
-          {weekends.map((w, i) => (
-            <div
-              key={i}
-              className="absolute inset-y-0 bg-foreground/[0.035]"
-              style={{ left: `${w.left}%`, width: `${w.width}%` }}
-            />
-          ))}
-          {months.map((m, i) => (
-            <div
-              key={`g-${i}`}
-              className="absolute inset-y-0 w-px bg-border/40"
-              style={{ left: `${m.pct}%` }}
-            />
-          ))}
-        </div>
+      <div className="mb-4 rounded-lg bg-muted p-3 text-xs text-muted-foreground">
+        Arraste a alça no canto direito de cada barra para ajustar a duração, dia a dia (1 semana ={" "}
+        {GANTT_DAYS_PER_WEEK} dias úteis). A &quot;Previsão&quot; e a duração total se recalculam
+        sozinhas.
+      </div>
 
-        {/* Cabeçalho de meses */}
-        <div className="relative mb-3 h-6 border-b border-border/60">
-          {months.map((m, i) => (
-            <div
-              key={i}
-              className="absolute top-0 h-full pl-1.5 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground"
-              style={{ left: `${m.pct}%` }}
+      <div
+        className="grid items-center gap-x-3.5 gap-y-2.5"
+        style={{ gridTemplateColumns: `${LABEL_W}px 1fr ${FORECAST_W}px` }}
+      >
+        <div />
+        <div ref={ticksRef} className="relative h-4">
+          {Array.from({ length: GANTT_AXIS_WEEKS + 1 }, (_, w) => (
+            <span
+              key={w}
+              className="absolute -translate-x-1/2 text-[9px] text-muted-foreground"
+              style={{ left: `${(w / GANTT_AXIS_WEEKS) * 100}%` }}
             >
-              {m.label}
-            </div>
+              {w}
+            </span>
           ))}
         </div>
+        <div className="pb-1 text-center text-[9.5px] font-bold uppercase tracking-wider text-muted-foreground">
+          Previsão
+        </div>
 
-        {/* Linhas das etapas */}
-        <TooltipProvider delayDuration={150}>
-          <div className="space-y-2.5">
-            {data.stagesWithDates.map(({ stage, start, end, pct }) => {
-              const startOffset = differenceInDays(start, data.rangeStart);
-              const duration = Math.max(1, differenceInDays(addDays(end, 1), start));
-              const left = (startOffset / data.totalDays) * 100;
-              const width = (duration / data.totalDays) * 100;
-              const widthFrac = width / 100;
-              const showFull = widthFrac >= 0.18;
-              const showShort = !showFull && widthFrac >= 0.09;
-              const showOnlyPct = !showFull && !showShort;
-              const datesLabel = `${format(start, "dd/MM")} – ${format(end, "dd/MM")}`;
-              return (
-                <div key={stage.id} className="relative flex items-center">
-                  <div
-                    className="shrink-0 truncate pr-3 text-sm font-medium"
-                    style={{ width: LABEL_W, marginLeft: -LABEL_W }}
-                    title={stage.nome}
-                  >
-                    {stage.nome}
-                  </div>
-                  <div className="relative h-9 flex-1">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div
-                          className="group absolute top-1/2 h-7 -translate-y-1/2 cursor-default overflow-hidden rounded-full border border-primary/30 bg-primary/10 shadow-sm transition-all duration-300 hover:h-8 hover:shadow-md"
-                          style={{ left: `${left}%`, width: `${width}%` }}
-                        >
-                          <div
-                            className="h-full rounded-full bg-gradient-to-r from-primary/80 to-primary transition-[width] duration-500 ease-out"
-                            style={{ width: `${Math.min(100, pct)}%` }}
-                          />
-                          <div className="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-b from-white/15 to-transparent" />
-                          <div className="absolute inset-0 flex items-center justify-between gap-1.5 px-2 text-[10px] font-semibold leading-none">
-                            <span className="shrink-0 tabular-nums text-foreground">
-                              {Math.round(pct)}%
-                            </span>
-                            {showFull && (
-                              <span className="truncate tabular-nums text-foreground/70">
-                                {datesLabel}
-                              </span>
-                            )}
-                            {showShort && (
-                              <span className="truncate tabular-nums text-foreground/70">
-                                {format(end, "dd/MM")}
-                              </span>
-                            )}
-                            {showOnlyPct && null}
-                          </div>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="text-xs">
-                        <div className="font-medium">{stage.nome}</div>
-                        <div className="mt-0.5 tabular-nums text-muted-foreground">
-                          {datesLabel}
-                        </div>
-                        <div className="tabular-nums text-muted-foreground">
-                          {duration} dia(s) · {Math.round(pct)}% concluído
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </TooltipProvider>
+        {rows.map(({ stage, dur, offset }) => (
+          <StageRow
+            key={stage.id}
+            nome={stage.nome}
+            duracao={dur}
+            offsetDays={offset}
+            onHandlePointerDown={(clientX) => handleDrag(stage.id, clientX, dur)}
+          />
+        ))}
+      </div>
 
-        {/* Linha de hoje */}
-        {showToday && (
-          <div
-            className="pointer-events-none absolute top-0 bottom-0"
-            style={{ left: `${todayPct}%` }}
-          >
-            <div className="absolute inset-y-0 w-px bg-gradient-to-b from-destructive/0 via-destructive to-destructive/0" />
-            <div className="absolute -top-1 left-1/2 -translate-x-1/2 rounded-full bg-destructive px-2 py-0.5 text-[10px] font-semibold tracking-wide text-destructive-foreground shadow-md">
-              hoje
-            </div>
-          </div>
-        )}
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2.5 rounded-lg bg-primary px-4 py-3 text-sm font-bold text-primary-foreground">
+        <span>
+          Duração total estimada: {formatDurationAsWeeks(totalDays)} ({totalDays} dias)
+        </span>
+        <em className="text-[11px] font-normal not-italic text-primary-foreground/70">
+          Somatória automática das etapas acima
+        </em>
       </div>
     </Card>
+  );
+}
+
+function StageRow({
+  nome,
+  duracao,
+  offsetDays,
+  onHandlePointerDown,
+}: {
+  nome: string;
+  duracao: number;
+  offsetDays: number;
+  onHandlePointerDown: (clientX: number) => void;
+}) {
+  const [dragging, setDragging] = useState(false);
+  const leftPct = (offsetDays / GANTT_AXIS_DAYS) * 100;
+  const widthPct = Math.max((duracao / GANTT_AXIS_DAYS) * 100, 2.4);
+
+  return (
+    <>
+      <div className="truncate text-sm font-bold" title={nome}>
+        {nome}
+      </div>
+      <div className="relative h-[26px] rounded-md bg-muted">
+        <div
+          className="absolute top-0 h-full rounded-md bg-primary transition-[width] duration-150"
+          style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+        >
+          <div
+            className="absolute right-[-6px] top-0 z-10 h-full w-3 cursor-ew-resize touch-none"
+            onPointerDown={(e) => {
+              e.preventDefault();
+              (e.target as HTMLElement).setPointerCapture(e.pointerId);
+              setDragging(true);
+              onHandlePointerDown(e.clientX);
+              const clear = () => {
+                setDragging(false);
+                window.removeEventListener("pointerup", clear);
+              };
+              window.addEventListener("pointerup", clear);
+            }}
+          >
+            <span
+              className={`absolute right-[3px] top-1/2 h-3.5 w-1 -translate-y-1/2 rounded-sm ${
+                dragging ? "bg-accent" : "bg-white/90"
+              }`}
+            />
+          </div>
+        </div>
+      </div>
+      <div className="text-center text-xs font-bold text-primary">
+        {formatDurationShort(duracao)}
+      </div>
+    </>
   );
 }
