@@ -27,6 +27,17 @@ export async function listProjects(): Promise<Project[]> {
   return data ?? [];
 }
 
+// Usado pela Visão Geral: traz TODOS os projetos, incluindo os que ainda
+// estão no Backlog, para os KPIs e gráficos de portfólio.
+export async function listAllProjects(): Promise<Project[]> {
+  const { data, error } = await supabase
+    .from("projects")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function getProject(id: string): Promise<ProjectFull | null> {
   const { data: project, error } = await supabase
     .from("projects")
@@ -89,6 +100,7 @@ export async function createProject(input: {
   analista_id?: string | null;
   status?: string;
   categoria?: string | null;
+  area?: string | null;
   projeto_relacionado_id?: string | null;
 }) {
   const { data, error } = await supabase.from("projects").insert(input).select().single();
@@ -123,6 +135,7 @@ export async function createBacklogItem(input: {
   nome: string;
   descricao?: string;
   categoria: BacklogCategoria;
+  area?: string | null;
   analista_id?: string | null;
   projeto_relacionado_id?: string | null;
 }) {

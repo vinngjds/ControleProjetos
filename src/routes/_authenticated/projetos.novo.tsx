@@ -7,13 +7,20 @@ import {
   distributeStageDates,
   updateStage,
   listAnalysts,
+  type BacklogCategoria,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { format, addDays } from "date-fns";
 
@@ -41,6 +48,8 @@ function NewProject() {
   const [dataEntrega, setDataEntrega] = useState(format(addDays(new Date(), 30), "yyyy-MM-dd"));
   const [useTemplate, setUseTemplate] = useState(true);
   const [analistaId, setAnalistaId] = useState<string>("none");
+  const [categoria, setCategoria] = useState<BacklogCategoria>("dashboard");
+  const [area, setArea] = useState("");
 
   const { data: analysts } = useQuery({ queryKey: ["analysts"], queryFn: listAnalysts });
 
@@ -52,6 +61,8 @@ function NewProject() {
         data_inicio: dataInicio,
         data_entrega: dataEntrega,
         analista_id: analistaId === "none" ? null : analistaId,
+        categoria,
+        area: area.trim() || null,
       });
       if (useTemplate) {
         const created = await Promise.all(
@@ -93,22 +104,69 @@ function NewProject() {
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-2">
             <Label htmlFor="nome">Nome do projeto</Label>
-            <Input id="nome" value={nome} onChange={(e) => setNome(e.target.value)} maxLength={120} autoFocus />
+            <Input
+              id="nome"
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              maxLength={120}
+              autoFocus
+            />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="descricao">Descrição</Label>
-            <Textarea id="descricao" value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={4} maxLength={1000} />
+            <Textarea
+              id="descricao"
+              value={descricao}
+              onChange={(e) => setDescricao(e.target.value)}
+              rows={4}
+              maxLength={1000}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="ini">Data de início</Label>
-              <Input id="ini" type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} />
+              <Input
+                id="ini"
+                type="date"
+                value={dataInicio}
+                onChange={(e) => setDataInicio(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="ent">Data de entrega</Label>
-              <Input id="ent" type="date" value={dataEntrega} onChange={(e) => setDataEntrega(e.target.value)} />
+              <Input
+                id="ent"
+                type="date"
+                value={dataEntrega}
+                onChange={(e) => setDataEntrega(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Categoria</Label>
+              <Select value={categoria} onValueChange={(v) => setCategoria(v as BacklogCategoria)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="dashboard">Dashboard</SelectItem>
+                  <SelectItem value="app">App</SelectItem>
+                  <SelectItem value="melhoria">Melhoria</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="area">Área solicitante</Label>
+              <Input
+                id="area"
+                value={area}
+                onChange={(e) => setArea(e.target.value)}
+                placeholder="Ex.: Comercial, Marketing..."
+              />
             </div>
           </div>
 

@@ -20,6 +20,7 @@ import { Route as AuthenticatedDesempenhoRouteImport } from './routes/_authentic
 import { Route as AuthenticatedEquipeRouteImport } from './routes/_authenticated/equipe'
 import { Route as AuthenticatedMatrizRouteImport } from './routes/_authenticated/matriz'
 import { Route as AuthenticatedMinhasTarefasRouteImport } from './routes/_authenticated/minhas-tarefas'
+import { Route as AuthenticatedVisaoGeralRouteImport } from './routes/_authenticated/visao-geral'
 import { Route as AuthenticatedApresentarIdRouteImport } from './routes/_authenticated/apresentar.$id'
 import { Route as AuthenticatedProjetosIdRouteImport } from './routes/_authenticated/projetos.$id'
 import { Route as AuthenticatedProjetosNovoRouteImport } from './routes/_authenticated/projetos.novo'
@@ -79,6 +80,11 @@ const AuthenticatedMinhasTarefasRoute =
     path: '/minhas-tarefas',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedVisaoGeralRoute = AuthenticatedVisaoGeralRouteImport.update({
+  id: '/visao-geral',
+  path: '/visao-geral',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedApresentarIdRoute =
   AuthenticatedApresentarIdRouteImport.update({
     id: '/apresentar/$id',
@@ -108,6 +114,7 @@ export interface FileRoutesByFullPath {
   '/equipe': typeof AuthenticatedEquipeRoute
   '/matriz': typeof AuthenticatedMatrizRoute
   '/minhas-tarefas': typeof AuthenticatedMinhasTarefasRoute
+  '/visao-geral': typeof AuthenticatedVisaoGeralRoute
   '/apresentar/$id': typeof AuthenticatedApresentarIdRoute
   '/projetos/$id': typeof AuthenticatedProjetosIdRoute
   '/projetos/novo': typeof AuthenticatedProjetosNovoRoute
@@ -122,6 +129,7 @@ export interface FileRoutesByTo {
   '/equipe': typeof AuthenticatedEquipeRoute
   '/matriz': typeof AuthenticatedMatrizRoute
   '/minhas-tarefas': typeof AuthenticatedMinhasTarefasRoute
+  '/visao-geral': typeof AuthenticatedVisaoGeralRoute
   '/': typeof AuthenticatedIndexRoute
   '/apresentar/$id': typeof AuthenticatedApresentarIdRoute
   '/projetos/$id': typeof AuthenticatedProjetosIdRoute
@@ -139,6 +147,7 @@ export interface FileRoutesById {
   '/_authenticated/equipe': typeof AuthenticatedEquipeRoute
   '/_authenticated/matriz': typeof AuthenticatedMatrizRoute
   '/_authenticated/minhas-tarefas': typeof AuthenticatedMinhasTarefasRoute
+  '/_authenticated/visao-geral': typeof AuthenticatedVisaoGeralRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/apresentar/$id': typeof AuthenticatedApresentarIdRoute
   '/_authenticated/projetos/$id': typeof AuthenticatedProjetosIdRoute
@@ -157,6 +166,7 @@ export interface FileRouteTypes {
     | '/equipe'
     | '/matriz'
     | '/minhas-tarefas'
+    | '/visao-geral'
     | '/apresentar/$id'
     | '/projetos/$id'
     | '/projetos/novo'
@@ -171,6 +181,7 @@ export interface FileRouteTypes {
     | '/equipe'
     | '/matriz'
     | '/minhas-tarefas'
+    | '/visao-geral'
     | '/'
     | '/apresentar/$id'
     | '/projetos/$id'
@@ -187,6 +198,7 @@ export interface FileRouteTypes {
     | '/_authenticated/equipe'
     | '/_authenticated/matriz'
     | '/_authenticated/minhas-tarefas'
+    | '/_authenticated/visao-geral'
     | '/_authenticated/'
     | '/_authenticated/apresentar/$id'
     | '/_authenticated/projetos/$id'
@@ -280,6 +292,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMinhasTarefasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/visao-geral': {
+      id: '/_authenticated/visao-geral'
+      path: '/visao-geral'
+      fullPath: '/visao-geral'
+      preLoaderRoute: typeof AuthenticatedVisaoGeralRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/apresentar/$id': {
       id: '/_authenticated/apresentar/$id'
       path: '/apresentar/$id'
@@ -310,6 +329,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedEquipeRoute: typeof AuthenticatedEquipeRoute
   AuthenticatedMatrizRoute: typeof AuthenticatedMatrizRoute
   AuthenticatedMinhasTarefasRoute: typeof AuthenticatedMinhasTarefasRoute
+  AuthenticatedVisaoGeralRoute: typeof AuthenticatedVisaoGeralRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedApresentarIdRoute: typeof AuthenticatedApresentarIdRoute
   AuthenticatedProjetosIdRoute: typeof AuthenticatedProjetosIdRoute
@@ -322,6 +342,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedEquipeRoute: AuthenticatedEquipeRoute,
   AuthenticatedMatrizRoute: AuthenticatedMatrizRoute,
   AuthenticatedMinhasTarefasRoute: AuthenticatedMinhasTarefasRoute,
+  AuthenticatedVisaoGeralRoute: AuthenticatedVisaoGeralRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedApresentarIdRoute: AuthenticatedApresentarIdRoute,
   AuthenticatedProjetosIdRoute: AuthenticatedProjetosIdRoute,

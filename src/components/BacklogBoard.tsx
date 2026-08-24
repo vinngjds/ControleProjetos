@@ -148,6 +148,7 @@ function CreateBacklogDialog({
   const [nome, setNome] = useState("");
   const [descricao, setDescricao] = useState("");
   const [categoria, setCategoria] = useState<BacklogCategoria>(defaultCategoria);
+  const [area, setArea] = useState("");
   const [relacionado, setRelacionado] = useState<string>("none");
 
   const { data: analysts } = useQuery({ queryKey: ["analysts"], queryFn: listAnalysts });
@@ -160,6 +161,7 @@ function CreateBacklogDialog({
         nome: nome.trim(),
         descricao: descricao.trim() || undefined,
         categoria,
+        area: area.trim() || null,
         analista_id: analistaId === "none" ? null : analistaId,
         projeto_relacionado_id: relacionado === "none" ? null : relacionado,
       }),
@@ -169,6 +171,7 @@ function CreateBacklogDialog({
       onOpenChange(false);
       setNome("");
       setDescricao("");
+      setArea("");
       setRelacionado("none");
       setAnalistaId("none");
     },
@@ -200,6 +203,14 @@ function CreateBacklogDialog({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Área solicitante</Label>
+            <Input
+              value={area}
+              onChange={(e) => setArea(e.target.value)}
+              placeholder="Ex.: Comercial, Marketing, Financeiro..."
+            />
           </div>
           {categoria === "melhoria" && (
             <div className="space-y-2">

@@ -14,6 +14,7 @@ import {
   FolderKanban,
   Target,
   Inbox,
+  LayoutGrid,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -22,7 +23,6 @@ export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   component: AuthLayout,
 });
-
 
 function AuthLayout() {
   const { session, loading, role, nome, signOut } = useAuth();
@@ -76,6 +76,9 @@ function AuthLayout() {
           <nav className="hidden items-center gap-1 md:flex">
             {isCoord ? (
               <>
+                <NavLink to="/visao-geral" icon={<LayoutGrid className="h-4 w-4" />}>
+                  Visão Geral
+                </NavLink>
                 <NavLink to="/" icon={<FolderKanban className="h-4 w-4" />}>
                   Projetos
                 </NavLink>
