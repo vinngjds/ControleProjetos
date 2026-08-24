@@ -7,6 +7,7 @@ import {
   startTask,
   completeTask,
   listTeam,
+  reconcileProjectStatus,
   type ProjectFull,
   type Task,
   type Subtask,
@@ -35,12 +36,20 @@ export function KanbanBoard({ project }: { project: ProjectFull }) {
   );
 
   const move = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) => {
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const t = allTasks.find((x) => x.id === id);
       const dias = status === "feito" && t ? { dias_trabalhados: Number(t.dias_estimados) } : {};
-      return updateTask(id, { status, ...dias });
+      await updateTask(id, { status, ...dias });
+      return reconcileProjectStatus(project.id);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["project", project.id] }),
+    onSuccess: (outcome) => {
+      qc.invalidateQueries({ queryKey: ["project", project.id] });
+      qc.invalidateQueries({ queryKey: ["projects"] });
+      if (outcome === "finalizado")
+        toast.success("Todas as tarefas concluídas — projeto finalizado!");
+      if (outcome === "reaberto")
+        toast.info("Projeto reaberto: nem todas as tarefas estão concluídas");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 

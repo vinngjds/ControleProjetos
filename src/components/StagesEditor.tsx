@@ -10,6 +10,7 @@ import {
   deleteStage,
   deleteSubtask,
   deleteTask,
+  reconcileProjectStatus,
   updateStage,
   updateSubtask,
   updateTask,
@@ -97,7 +98,8 @@ export function StagesEditor({ project }: { project: ProjectFull }) {
         {project.stages.length > 0 && (
           <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
             <span>
-              Soma dos pesos: <span className="font-medium tabular-nums text-foreground">{totalPeso}</span>
+              Soma dos pesos:{" "}
+              <span className="font-medium tabular-nums text-foreground">{totalPeso}</span>
               {totalPeso > 0 && " (normalizado para 100%)"}
             </span>
             <Button
@@ -176,14 +178,18 @@ function StageItem({
   return (
     <Card className="overflow-hidden">
       <div className="flex items-center gap-2 px-4 py-3">
-        <button onClick={() => setOpen(!open)} className="text-muted-foreground hover:text-foreground">
+        <button
+          onClick={() => setOpen(!open)}
+          className="text-muted-foreground hover:text-foreground"
+        >
           {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </button>
         <div className="flex-1">
           <div className="flex items-center gap-2 font-medium">
             {stage.nome}
             <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-accent-foreground">
-              peso {stage.peso ?? 0}{pesoPct ? ` · ${pesoPct}%` : ""}
+              peso {stage.peso ?? 0}
+              {pesoPct ? ` · ${pesoPct}%` : ""}
             </span>
           </div>
           <div className="text-xs text-muted-foreground">
@@ -337,13 +343,22 @@ function TaskRow({ task, projectId }: { task: TaskWithSubtasks; projectId: strin
   const [showSubs, setShowSubs] = useState(task.subtasks.length > 0);
 
   const toggleDone = useMutation({
-    mutationFn: () =>
-      updateTask(task.id, {
+    mutationFn: async () => {
+      await updateTask(task.id, {
         status: task.status === "feito" ? "a_fazer" : "feito",
         dias_trabalhados:
           task.status === "feito" ? task.dias_trabalhados : Number(task.dias_estimados),
-      }),
-    onSuccess: invalidate,
+      });
+      return reconcileProjectStatus(projectId);
+    },
+    onSuccess: (outcome) => {
+      invalidate();
+      qc.invalidateQueries({ queryKey: ["projects"] });
+      if (outcome === "finalizado")
+        toast.success("Todas as tarefas concluídas — projeto finalizado!");
+      if (outcome === "reaberto")
+        toast.info("Projeto reaberto: nem todas as tarefas estão concluídas");
+    },
   });
 
   const remove = useMutation({
@@ -371,8 +386,12 @@ function TaskRow({ task, projectId }: { task: TaskWithSubtasks; projectId: strin
               onClick={() => setShowSubs(!showSubs)}
               className="mt-0.5 text-xs text-muted-foreground hover:text-foreground"
             >
-              {showSubs ? <ChevronDown className="inline h-3 w-3" /> : <ChevronRight className="inline h-3 w-3" />}
-              {" "}✓ {subDone}/{task.subtasks.length} subtarefas
+              {showSubs ? (
+                <ChevronDown className="inline h-3 w-3" />
+              ) : (
+                <ChevronRight className="inline h-3 w-3" />
+              )}{" "}
+              ✓ {subDone}/{task.subtasks.length} subtarefas
             </button>
           )}
           {task.subtasks.length === 0 && (
@@ -391,16 +410,16 @@ function TaskRow({ task, projectId }: { task: TaskWithSubtasks; projectId: strin
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditing(true)}>
           <Pencil className="h-3.5 w-3.5" />
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          onClick={() => remove.mutate()}
-        >
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => remove.mutate()}>
           <Trash2 className="h-3.5 w-3.5 text-destructive" />
         </Button>
 
-        <EditTaskDialog task={task} open={editing} onOpenChange={setEditing} projectId={projectId} />
+        <EditTaskDialog
+          task={task}
+          open={editing}
+          onOpenChange={setEditing}
+          projectId={projectId}
+        />
       </div>
 
       {showSubs && (
@@ -437,12 +456,7 @@ function SubtaskRow({ subtask, projectId }: { subtask: Subtask; projectId: strin
       <span className={`flex-1 ${subtask.concluida ? "text-muted-foreground line-through" : ""}`}>
         {subtask.titulo}
       </span>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-6 w-6"
-        onClick={() => remove.mutate()}
-      >
+      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => remove.mutate()}>
         <Trash2 className="h-3 w-3 text-destructive" />
       </Button>
     </div>
@@ -509,18 +523,25 @@ function EditTaskDialog({
   const [status, setStatus] = useState(task.status);
 
   const save = useMutation({
-    mutationFn: () =>
-      updateTask(task.id, {
+    mutationFn: async () => {
+      await updateTask(task.id, {
         titulo,
         descricao: descricao || null,
         dias_estimados: Number(diasEst) || 0,
         dias_trabalhados: Number(diasTrab) || 0,
         status,
-      }),
-    onSuccess: () => {
+      });
+      return reconcileProjectStatus(projectId);
+    },
+    onSuccess: (outcome) => {
       qc.invalidateQueries({ queryKey: ["project", projectId] });
+      qc.invalidateQueries({ queryKey: ["projects"] });
       onOpenChange(false);
       toast.success("Tarefa atualizada");
+      if (outcome === "finalizado")
+        toast.success("Todas as tarefas concluídas — projeto finalizado!");
+      if (outcome === "reaberto")
+        toast.info("Projeto reaberto: nem todas as tarefas estão concluídas");
     },
   });
 
@@ -667,7 +688,10 @@ function MockupAttachments({
       ) : (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {attachments.map((att) => (
-            <div key={att.id} className="group relative aspect-square overflow-hidden rounded-md border border-border bg-muted">
+            <div
+              key={att.id}
+              className="group relative aspect-square overflow-hidden rounded-md border border-border bg-muted"
+            >
               <img
                 src={attachmentUrl(att.storage_path)}
                 alt={att.nome}

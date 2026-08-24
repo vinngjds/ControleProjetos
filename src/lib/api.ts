@@ -142,11 +142,8 @@ export async function createBacklogItem(input: {
   return createProject({ ...input, status: "backlog" });
 }
 
-export async function promoteFromBacklog(
-  id: string,
-  dates: { data_inicio: string; data_entrega: string },
-) {
-  await updateProject(id, { status: "ativo", ...dates });
+export async function promoteFromBacklog(id: string, dates: { data_inicio: string }) {
+  await updateProject(id, { status: "classificacao", ...dates });
 }
 
 export async function createStage(input: {
@@ -467,6 +464,34 @@ export async function applyStageDistribution(project: ProjectFull) {
   await Promise.all(Object.entries(dist).map(([id, d]) => updateStage(id, d)));
 }
 
+/**
+ * Reconcilia o status do projeto com o estado real das tarefas: se todas as tarefas de
+ * todas as etapas estiverem "feito", marca o projeto como "finalizado" automaticamente.
+ * Se o projeto estava "finalizado" e alguma tarefa deixou de estar concluída (reaberta),
+ * volta para "ativo". Não mexe em projetos em "backlog" ou "classificacao".
+ * Chamada após qualquer mutação que altere o status de uma tarefa.
+ */
+export async function reconcileProjectStatus(
+  projectId: string,
+): Promise<"finalizado" | "reaberto" | null> {
+  const project = await getProject(projectId);
+  if (!project) return null;
+  if (project.status !== "ativo" && project.status !== "finalizado") return null;
+
+  const allTasks = project.stages.flatMap((s) => s.tasks);
+  const allDone = allTasks.length > 0 && allTasks.every((t) => t.status === "feito");
+
+  if (allDone && project.status !== "finalizado") {
+    await updateProject(projectId, { status: "finalizado" });
+    return "finalizado";
+  }
+  if (!allDone && project.status === "finalizado") {
+    await updateProject(projectId, { status: "ativo" });
+    return "reaberto";
+  }
+  return null;
+}
+
 // ---------- Gantt por duração (eixo fixo, arrastável) ----------
 export const GANTT_AXIS_WEEKS = 10;
 export const GANTT_DAYS_PER_WEEK = 5;
@@ -514,7 +539,8 @@ export function distributeStageDatesFromDurations(
 
 /**
  * Aprova o cronograma: calcula e persiste as datas reais de cada etapa a partir das
- * durações definidas no Gantt (arrastáveis) e da data de início do projeto.
+ * durações definidas no Gantt (arrastáveis) e da data de início do projeto, e move o
+ * projeto de "Em Classificação" para "Em Andamento".
  */
 export async function approveScheduleFromDurations(project: ProjectFull) {
   const dist = distributeStageDatesFromDurations(
@@ -522,6 +548,9 @@ export async function approveScheduleFromDurations(project: ProjectFull) {
     project.stages.map((s) => ({ id: s.id, duracao_dias: s.duracao_dias, ordem: s.ordem })),
   );
   await Promise.all(Object.entries(dist).map(([id, d]) => updateStage(id, d)));
+  if (project.status === "classificacao") {
+    await updateProject(project.id, { status: "ativo" });
+  }
 }
 
 // ---------- Esforço x Impacto ----------

@@ -7,11 +7,21 @@ import {
   computeProgress,
   listTeam,
   type BacklogCategoria,
+  type Project,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Calendar, Clock, FolderKanban, ArrowRight, Plus, User } from "lucide-react";
+import {
+  Calendar,
+  Clock,
+  FolderKanban,
+  ArrowRight,
+  Plus,
+  User,
+  ListChecks,
+  CheckCircle2,
+} from "lucide-react";
 import { format, differenceInDays, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -26,9 +36,42 @@ const CATEGORIA_LABEL: Record<BacklogCategoria, string> = {
   melhoria: "Melhoria",
 };
 
+type FaseKey = "classificacao" | "ativo" | "finalizado";
+
+const FASES: {
+  key: FaseKey;
+  label: string;
+  icon: typeof ListChecks;
+  color: string;
+  activeBorder: string;
+}[] = [
+  {
+    key: "classificacao",
+    label: "Em Classificação",
+    icon: ListChecks,
+    color: "text-warning",
+    activeBorder: "border-warning",
+  },
+  {
+    key: "ativo",
+    label: "Em Andamento",
+    icon: Clock,
+    color: "text-primary",
+    activeBorder: "border-primary",
+  },
+  {
+    key: "finalizado",
+    label: "Finalizado",
+    icon: CheckCircle2,
+    color: "text-success",
+    activeBorder: "border-success",
+  },
+];
+
 function Dashboard() {
   const { role } = useAuth();
   const isCoord = role === "coordenador";
+  const [fase, setFase] = useState<FaseKey>("classificacao");
   const [categoriaFiltro, setCategoriaFiltro] = useState<BacklogCategoria | "todos">("todos");
   const { data: projects, isLoading } = useQuery({
     queryKey: ["projects"],
@@ -36,7 +79,8 @@ function Dashboard() {
   });
   const { data: team } = useQuery({ queryKey: ["team"], queryFn: listTeam, enabled: isCoord });
 
-  const filtered = (projects ?? []).filter(
+  const porFase = (projects ?? []).filter((p) => p.status === fase);
+  const filtered = porFase.filter(
     (p) => categoriaFiltro === "todos" || p.categoria === categoriaFiltro,
   );
 
@@ -55,26 +99,6 @@ function Dashboard() {
         </div>
       </div>
 
-      {!isLoading && !!projects?.length && (
-        <div className="flex flex-wrap gap-2">
-          <FiltroPill
-            active={categoriaFiltro === "todos"}
-            onClick={() => setCategoriaFiltro("todos")}
-          >
-            Todos
-          </FiltroPill>
-          {(Object.keys(CATEGORIA_LABEL) as BacklogCategoria[]).map((c) => (
-            <FiltroPill
-              key={c}
-              active={categoriaFiltro === c}
-              onClick={() => setCategoriaFiltro(c)}
-            >
-              {CATEGORIA_LABEL[c]}
-            </FiltroPill>
-          ))}
-        </div>
-      )}
-
       {isLoading ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
@@ -83,24 +107,73 @@ function Dashboard() {
         </div>
       ) : !projects?.length ? (
         <EmptyState isCoord={isCoord} />
-      ) : filtered.length === 0 ? (
-        <Card className="p-10 text-center text-sm text-muted-foreground">
-          Nenhum projeto nessa categoria.
-        </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((p) => (
-            <ProjectCard
-              key={p.id}
-              projectId={p.id}
-              nome={p.nome}
-              descricao={p.descricao}
-              dataEntrega={p.data_entrega!}
-              categoria={p.categoria as BacklogCategoria | null}
-              analystName={team?.find((t) => t.id === p.analista_id)?.nome ?? null}
-            />
-          ))}
-        </div>
+        <>
+          <div className="flex gap-1 border-b border-border">
+            {FASES.map((f) => {
+              const count = (projects ?? []).filter((p) => p.status === f.key).length;
+              const active = fase === f.key;
+              return (
+                <button
+                  key={f.key}
+                  onClick={() => setFase(f.key)}
+                  className={`flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
+                    active
+                      ? `${f.activeBorder} ${f.color}`
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <f.icon className="h-3.5 w-3.5" />
+                  {f.label}
+                  <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold">
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {porFase.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              <FiltroPill
+                active={categoriaFiltro === "todos"}
+                onClick={() => setCategoriaFiltro("todos")}
+              >
+                Todos
+              </FiltroPill>
+              {(Object.keys(CATEGORIA_LABEL) as BacklogCategoria[]).map((c) => (
+                <FiltroPill
+                  key={c}
+                  active={categoriaFiltro === c}
+                  onClick={() => setCategoriaFiltro(c)}
+                >
+                  {CATEGORIA_LABEL[c]}
+                </FiltroPill>
+              ))}
+            </div>
+          )}
+
+          {filtered.length === 0 ? (
+            <Card className="p-10 text-center text-sm text-muted-foreground">
+              Nenhum projeto nesta fase{categoriaFiltro !== "todos" ? " e categoria" : ""}.
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {filtered.map((p) => (
+                <ProjectCard
+                  key={p.id}
+                  projectId={p.id}
+                  nome={p.nome}
+                  descricao={p.descricao}
+                  dataEntrega={p.data_entrega}
+                  categoria={p.categoria as BacklogCategoria | null}
+                  fase={p.status as FaseKey}
+                  analystName={team?.find((t) => t.id === p.analista_id)?.nome ?? null}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -141,13 +214,15 @@ function ProjectCard({
   descricao,
   dataEntrega,
   categoria,
+  fase,
   analystName,
 }: {
   projectId: string;
   nome: string;
   descricao: string | null;
-  dataEntrega: string;
+  dataEntrega: Project["data_entrega"];
   categoria: BacklogCategoria | null;
+  fase: FaseKey;
   analystName: string | null;
 }) {
   const { data: full } = useQuery({
@@ -156,13 +231,16 @@ function ProjectCard({
   });
 
   const progress = full ? computeProgress(full) : null;
-  const diasRestantes = differenceInDays(parseISO(dataEntrega), new Date());
+  const entregaDate = dataEntrega ? parseISO(dataEntrega) : null;
+  const diasRestantes = entregaDate ? differenceInDays(entregaDate, new Date()) : null;
   const prazoColor =
-    diasRestantes < 0
-      ? "text-destructive"
-      : diasRestantes <= 7
-        ? "text-warning"
-        : "text-muted-foreground";
+    diasRestantes === null
+      ? "text-muted-foreground"
+      : diasRestantes < 0
+        ? "text-destructive"
+        : diasRestantes <= 7
+          ? "text-warning"
+          : "text-muted-foreground";
 
   return (
     <Link to="/projetos/$id" params={{ id: projectId }}>
@@ -184,35 +262,47 @@ function ProjectCard({
           <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
         </div>
 
-        <div className="mt-5 space-y-3">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Progresso</span>
-            <span className="font-medium tabular-nums">
-              {progress ? Math.round(progress.pct) : 0}%
-            </span>
-          </div>
-          <Progress value={progress?.pct ?? 0} className="h-1.5" />
-        </div>
-
-        <div className="mt-4 flex items-center justify-between text-xs">
-          <div className={`flex items-center gap-1.5 ${prazoColor}`}>
-            <Calendar className="h-3.5 w-3.5" />
-            {diasRestantes < 0
-              ? `${Math.abs(diasRestantes)}d atrasado`
-              : diasRestantes === 0
-                ? "Entrega hoje"
-                : `${diasRestantes}d restantes`}
-          </div>
-          {progress && (
-            <div className="flex items-center gap-1.5 text-muted-foreground">
-              <Clock className="h-3.5 w-3.5" />
-              {progress.diasRestantes.toFixed(1)}d restantes
+        {fase !== "classificacao" && (
+          <div className="mt-5 space-y-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Progresso</span>
+              <span className="font-medium tabular-nums">
+                {progress ? Math.round(progress.pct) : 0}%
+              </span>
             </div>
-          )}
-        </div>
+            <Progress value={progress?.pct ?? 0} className="h-1.5" />
+          </div>
+        )}
+
+        {fase === "classificacao" ? (
+          <div className="mt-4 rounded-md bg-warning/10 px-3 py-2 text-xs text-warning">
+            Aguardando classificação e aprovação do cronograma.
+          </div>
+        ) : (
+          <div className="mt-4 flex items-center justify-between text-xs">
+            <div className={`flex items-center gap-1.5 ${prazoColor}`}>
+              <Calendar className="h-3.5 w-3.5" />
+              {diasRestantes === null
+                ? "Sem prazo definido"
+                : diasRestantes < 0
+                  ? `${Math.abs(diasRestantes)}d atrasado`
+                  : diasRestantes === 0
+                    ? "Entrega hoje"
+                    : `${diasRestantes}d restantes`}
+            </div>
+            {progress && (
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Clock className="h-3.5 w-3.5" />
+                {progress.diasRestantes.toFixed(1)}d restantes
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-          <span>{format(parseISO(dataEntrega), "dd 'de' MMM, yyyy", { locale: ptBR })}</span>
+          <span>
+            {entregaDate ? format(entregaDate, "dd 'de' MMM, yyyy", { locale: ptBR }) : "—"}
+          </span>
           {analystName && (
             <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5">
               <User className="h-3 w-3" />

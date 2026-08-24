@@ -49,7 +49,8 @@ export function GanttChart({ project }: { project: ProjectFull }) {
       }),
     onSuccess: () => {
       invalidate();
-      toast.success("Cronograma aprovado — datas calculadas a partir do início do projeto");
+      qc.invalidateQueries({ queryKey: ["projects"] });
+      toast.success("Cronograma aprovado — projeto movido para Em Andamento");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -76,7 +77,8 @@ export function GanttChart({ project }: { project: ProjectFull }) {
 
   // Marcador de "hoje": só faz sentido quando o cronograma já foi aprovado
   // (existe uma data de início real) e o projeto não está mais no backlog.
-  const showToday = project.status !== "backlog" && !!project.data_inicio;
+  const showToday =
+    project.status !== "backlog" && project.status !== "classificacao" && !!project.data_inicio;
   const diasDecorridos = project.data_inicio ? diasUteisDecorridos(project.data_inicio) : 0;
   const todayPct = showToday ? Math.min(100, (diasDecorridos / GANTT_AXIS_DAYS) * 100) : null;
 
@@ -110,15 +112,21 @@ export function GanttChart({ project }: { project: ProjectFull }) {
 
   return (
     <Card className="p-5">
-      {project.status === "backlog" ? (
+      {project.status === "classificacao" ? (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-secondary p-4">
           <p className="max-w-md text-sm text-secondary-foreground">
-            Cronograma pronto? Aprove para definir a data de início e calcular a previsão de entrega
-            automaticamente.
+            Cronograma pronto? Aprove para calcular a previsão de entrega e mover o projeto para Em
+            Andamento.
           </p>
           <Button onClick={() => approve.mutate()} disabled={approve.isPending}>
             Aprovar Cronograma
           </Button>
+        </div>
+      ) : project.status === "finalizado" ? (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-success/15 p-4">
+          <p className="max-w-md text-sm">
+            ✓ Projeto finalizado — todas as tarefas foram concluídas.
+          </p>
         </div>
       ) : (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-secondary p-4">

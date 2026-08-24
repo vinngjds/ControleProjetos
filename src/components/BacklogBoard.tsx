@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { format, addDays } from "date-fns";
+import { format } from "date-fns";
 import {
   listBacklog,
   createBacklogItem,
@@ -279,7 +279,6 @@ function EditBacklogDialog({
   const [descricao, setDescricao] = useState(project.descricao ?? "");
   const today = format(new Date(), "yyyy-MM-dd");
   const [dataInicio, setDataInicio] = useState(today);
-  const [dataEntrega, setDataEntrega] = useState(format(addDays(new Date(), 30), "yyyy-MM-dd"));
 
   const save = useMutation({
     mutationFn: () =>
@@ -292,12 +291,11 @@ function EditBacklogDialog({
   });
 
   const promote = useMutation({
-    mutationFn: () =>
-      promoteFromBacklog(project.id, { data_inicio: dataInicio, data_entrega: dataEntrega }),
+    mutationFn: () => promoteFromBacklog(project.id, { data_inicio: dataInicio }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["backlog"] });
       qc.invalidateQueries({ queryKey: ["projects"] });
-      toast.success("Projeto movido para Classificação");
+      toast.success("Projeto movido para Em Classificação");
       onOpenChange(false);
       navigate({ to: "/projetos/$id", params: { id: project.id } });
     },
@@ -332,33 +330,23 @@ function EditBacklogDialog({
           <div className="rounded-lg border border-border bg-muted/40 p-4">
             <p className="text-sm font-medium">Pronto para começar?</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Mover para Classificação torna este item um projeto de verdade, com Esforço × Impacto
-              e Cronograma.
+              Mover para Em Classificação torna este item um projeto de verdade: você vai responder
+              Esforço × Impacto e ajustar o Cronograma antes de aprovar o início.
             </p>
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Data de início</Label>
-                <Input
-                  type="date"
-                  value={dataInicio}
-                  onChange={(e) => setDataInicio(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Data de entrega</Label>
-                <Input
-                  type="date"
-                  value={dataEntrega}
-                  onChange={(e) => setDataEntrega(e.target.value)}
-                />
-              </div>
+            <div className="mt-3 space-y-1">
+              <Label className="text-xs">Data de início prevista</Label>
+              <Input
+                type="date"
+                value={dataInicio}
+                onChange={(e) => setDataInicio(e.target.value)}
+              />
             </div>
             <Button
               className="mt-3 w-full"
               disabled={promote.isPending}
               onClick={() => promote.mutate()}
             >
-              {promote.isPending ? "Movendo..." : "→ Mover para Classificação"}
+              {promote.isPending ? "Movendo..." : "→ Mover para Em Classificação"}
             </Button>
           </div>
         </div>

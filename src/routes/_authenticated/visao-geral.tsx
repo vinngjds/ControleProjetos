@@ -25,8 +25,19 @@ export const Route = createFileRoute("/_authenticated/visao-geral")({
   component: VisaoGeralPage,
 });
 
-const STATUS_LABEL: Record<string, string> = { backlog: "Backlog", ativo: "Em andamento" };
-const STATUS_COLOR: Record<string, string> = { backlog: "#94a3b8", ativo: "#2563eb" };
+const STATUS_LABEL: Record<string, string> = {
+  backlog: "Backlog",
+  classificacao: "Em Classificação",
+  ativo: "Em Andamento",
+  finalizado: "Finalizado",
+};
+const STATUS_COLOR: Record<string, string> = {
+  backlog: "#94a3b8",
+  classificacao: "#d97706",
+  ativo: "#2563eb",
+  finalizado: "#059669",
+};
+const STATUS_ORDER = ["backlog", "classificacao", "ativo", "finalizado"] as const;
 const TIPO_COLOR: Record<string, string> = { novo: "#1e3a8a", melhoria: "#60a5fa" };
 const SEM_AREA = "Sem área definida";
 
@@ -63,11 +74,12 @@ function diasDesde(dateStr: string) {
 function Overview({ projects }: { projects: Project[] }) {
   const total = projects.length;
   const backlog = projects.filter((p) => p.status === "backlog");
-  const andamento = projects.filter((p) => p.status !== "backlog");
+  const classificacao = projects.filter((p) => p.status === "classificacao");
+  const ativo = projects.filter((p) => p.status === "ativo");
 
   // Tempo total = dias em backlog (desde created_at) + dias em andamento (desde data_inicio)
   const tempoBacklog = backlog.reduce((acc, p) => acc + diasDesde(p.created_at), 0);
-  const tempoAndamento = andamento.reduce(
+  const tempoAndamento = ativo.reduce(
     (acc, p) => acc + (p.data_inicio ? diasDesde(p.data_inicio) : 0),
     0,
   );
@@ -82,13 +94,15 @@ function Overview({ projects }: { projects: Project[] }) {
     return areas
       .map((area) => {
         const row: Record<string, number | string> = { area };
-        row.backlog = projects.filter(
-          (p) => (p.area?.trim() || SEM_AREA) === area && p.status === "backlog",
-        ).length;
-        row.ativo = projects.filter(
-          (p) => (p.area?.trim() || SEM_AREA) === area && p.status !== "backlog",
-        ).length;
-        row.total = (row.backlog as number) + (row.ativo as number);
+        let rowTotal = 0;
+        STATUS_ORDER.forEach((st) => {
+          const count = projects.filter(
+            (p) => (p.area?.trim() || SEM_AREA) === area && p.status === st,
+          ).length;
+          row[st] = count;
+          rowTotal += count;
+        });
+        row.total = rowTotal;
         return row;
       })
       .sort((a, b) => (b.total as number) - (a.total as number));
@@ -121,8 +135,8 @@ function Overview({ projects }: { projects: Project[] }) {
         <KPI
           icon={<Clock className="h-4 w-4" />}
           label="Em andamento"
-          value={String(andamento.length)}
-          sub={total ? `${Math.round((andamento.length / total) * 100)}% do total` : "—"}
+          value={String(ativo.length)}
+          sub={total ? `${Math.round((ativo.length / total) * 100)}% do total` : "—"}
         />
         <KPI
           icon={<FolderKanban className="h-4 w-4" />}
@@ -137,6 +151,13 @@ function Overview({ projects }: { projects: Project[] }) {
           sub={`${tempoAndamento}d andamento · ${tempoBacklog}d backlog`}
         />
       </div>
+
+      {classificacao.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          + {classificacao.length} projeto{classificacao.length === 1 ? "" : "s"} Em Classificação
+          (não contam nos KPIs acima, mas aparecem no gráfico de volume por área)
+        </p>
+      )}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Card className="p-5">
@@ -165,19 +186,16 @@ function Overview({ projects }: { projects: Project[] }) {
                     width={120}
                   />
                   <Tooltip />
-                  <Bar
-                    dataKey="backlog"
-                    stackId="a"
-                    fill={STATUS_COLOR.backlog}
-                    name={STATUS_LABEL.backlog}
-                  />
-                  <Bar
-                    dataKey="ativo"
-                    stackId="a"
-                    fill={STATUS_COLOR.ativo}
-                    name={STATUS_LABEL.ativo}
-                    radius={[0, 4, 4, 0]}
-                  />
+                  {STATUS_ORDER.map((st, i) => (
+                    <Bar
+                      key={st}
+                      dataKey={st}
+                      stackId="a"
+                      fill={STATUS_COLOR[st]}
+                      name={STATUS_LABEL[st]}
+                      radius={i === STATUS_ORDER.length - 1 ? [0, 4, 4, 0] : 0}
+                    />
+                  ))}
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                 </BarChart>
               </ResponsiveContainer>

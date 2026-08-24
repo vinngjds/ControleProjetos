@@ -37,6 +37,19 @@ export const Route = createFileRoute("/_authenticated/projetos/$id")({
   component: ProjectPage,
 });
 
+const STATUS_LABEL: Record<string, string> = {
+  backlog: "Backlog",
+  classificacao: "Em Classificação",
+  ativo: "Em Andamento",
+  finalizado: "Finalizado",
+};
+const STATUS_TONE: Record<string, string> = {
+  backlog: "bg-muted text-muted-foreground",
+  classificacao: "bg-warning/15 text-warning",
+  ativo: "bg-primary/10 text-primary",
+  finalizado: "bg-success/15 text-success",
+};
+
 function ProjectPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
@@ -85,7 +98,7 @@ function ProjectPage() {
       </Card>
     );
   }
-  const isBacklog = project.status === "backlog" || !project.data_entrega;
+  const isPreLaunch = project.status === "classificacao";
   const progress = computeProgress(project);
   const dataEntrega = project.data_entrega ? parseISO(project.data_entrega) : null;
   const dataInicio = project.data_inicio ? parseISO(project.data_inicio) : null;
@@ -109,7 +122,14 @@ function ProjectPage() {
           >
             <ArrowLeft className="h-3.5 w-3.5" /> Projetos
           </Link>
-          <h1 className="mt-2 font-display text-3xl font-semibold">{project.nome}</h1>
+          <h1 className="mt-2 flex flex-wrap items-center gap-2 font-display text-3xl font-semibold">
+            {project.nome}
+            <span
+              className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_TONE[project.status] ?? "bg-muted text-muted-foreground"}`}
+            >
+              {STATUS_LABEL[project.status] ?? project.status}
+            </span>
+          </h1>
           {project.descricao && (
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{project.descricao}</p>
           )}
@@ -190,7 +210,9 @@ function ProjectPage() {
                 : `${diasRestantes}d restantes`
           }
           sub={
-            dataEntrega ? format(dataEntrega, "dd MMM yyyy", { locale: ptBR }) : "Ainda em backlog"
+            dataEntrega
+              ? format(dataEntrega, "dd MMM yyyy", { locale: ptBR })
+              : "Cronograma pendente"
           }
           tone={
             diasRestantes !== null && diasRestantes < 0
@@ -251,10 +273,10 @@ function ProjectPage() {
           <StagesEditor project={project} />
         </TabsContent>
       </Tabs>
-      {isBacklog && (
+      {isPreLaunch && (
         <p className="text-center text-xs text-muted-foreground">
-          Este projeto ainda está no Backlog. Classifique-o e ajuste o cronograma; ao aprovar, as
-          datas reais são calculadas a partir do início definido.
+          Este projeto ainda está Em Classificação. Responda Esforço × Impacto e ajuste o
+          cronograma; ao aprovar, as datas reais são calculadas e o projeto passa para Em Andamento.
         </p>
       )}
     </div>
