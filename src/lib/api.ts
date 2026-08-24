@@ -268,6 +268,9 @@ export async function setUserRole(userId: string, role: AppRole) {
 function isoDate(d = new Date()) {
   return d.toISOString().slice(0, 10);
 }
+export function diasUteisDecorridos(dataInicio: string): number {
+  return Math.max(0, businessDaysBetweenInclusive(dataInicio, isoDate()) - 1);
+}
 function businessDaysBetweenInclusive(start: string, endIso: string) {
   let count = 0;
   const cur = new Date(start + "T00:00:00Z");

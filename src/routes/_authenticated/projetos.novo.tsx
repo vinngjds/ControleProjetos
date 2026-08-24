@@ -23,10 +23,12 @@ export const Route = createFileRoute("/_authenticated/projetos/novo")({
 });
 
 const TEMPLATE_STAGES = [
-  { nome: "Mapeamento de Dados", peso: 15 },
-  { nome: "Desenvolvimento Mockup", peso: 10 },
-  { nome: "Estruturação", peso: 45 },
-  { nome: "Desenvolvimento do Dashboard", peso: 30 },
+  { nome: "Análise de Requisitos", peso: 15 },
+  { nome: "Mockup", peso: 10 },
+  { nome: "ETL", peso: 45 },
+  { nome: "Criação da Visualização", peso: 30 },
+  { nome: "Publicação", peso: 0 },
+  { nome: "Acompanhamento", peso: 0 },
 ];
 
 function NewProject() {

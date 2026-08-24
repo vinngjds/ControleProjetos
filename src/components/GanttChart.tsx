@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   approveScheduleFromDurations,
+  diasUteisDecorridos,
   formatDurationAsWeeks,
   formatDurationShort,
   GANTT_AXIS_DAYS,
@@ -73,6 +74,12 @@ export function GanttChart({ project }: { project: ProjectFull }) {
   });
   const totalDays = cursor;
 
+  // Marcador de "hoje": só faz sentido quando o cronograma já foi aprovado
+  // (existe uma data de início real) e o projeto não está mais no backlog.
+  const showToday = project.status !== "backlog" && !!project.data_inicio;
+  const diasDecorridos = project.data_inicio ? diasUteisDecorridos(project.data_inicio) : 0;
+  const todayPct = showToday ? Math.min(100, (diasDecorridos / GANTT_AXIS_DAYS) * 100) : null;
+
   function handleDrag(stageId: string, startClientX: number, originalDuration: number) {
     const axisPxWidth = ticksRef.current?.getBoundingClientRect().width ?? 1;
     const dayPx = axisPxWidth / GANTT_AXIS_DAYS;
@@ -103,24 +110,36 @@ export function GanttChart({ project }: { project: ProjectFull }) {
 
   return (
     <Card className="p-5">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-secondary p-4">
-        <p className="max-w-md text-sm text-secondary-foreground">
-          Cronograma pronto? Aprove para definir a data de início e calcular a previsão de entrega
-          automaticamente.
-        </p>
-        <Button onClick={() => approve.mutate()} disabled={approve.isPending}>
-          Aprovar Cronograma
-        </Button>
-      </div>
+      {project.status === "backlog" ? (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-secondary p-4">
+          <p className="max-w-md text-sm text-secondary-foreground">
+            Cronograma pronto? Aprove para definir a data de início e calcular a previsão de entrega
+            automaticamente.
+          </p>
+          <Button onClick={() => approve.mutate()} disabled={approve.isPending}>
+            Aprovar Cronograma
+          </Button>
+        </div>
+      ) : (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-secondary p-4">
+          <p className="max-w-md text-sm text-secondary-foreground">
+            {diasDecorridos} de {totalDays} dias úteis decorridos
+            {project.data_inicio ? ` · início ${project.data_inicio}` : ""}
+          </p>
+          <Button onClick={() => approve.mutate()} disabled={approve.isPending} variant="outline">
+            Reaprovar cronograma
+          </Button>
+        </div>
+      )}
 
       <div className="mb-4 rounded-lg bg-muted p-3 text-xs text-muted-foreground">
         Arraste a alça no canto direito de cada barra para ajustar a duração, dia a dia (1 semana ={" "}
-        {GANTT_DAYS_PER_WEEK} dias úteis). A &quot;Previsão&quot; e a duração total se recalculam
-        sozinhas.
+        {GANTT_DAYS_PER_WEEK} dias úteis). {showToday && "O marcador azul mostra o dia de hoje. "}A
+        &quot;Previsão&quot; e a duração total se recalculam sozinhas.
       </div>
 
       <div
-        className="grid items-center gap-x-3.5 gap-y-2.5"
+        className="relative grid items-center gap-x-3.5 gap-y-2.5"
         style={{ gridTemplateColumns: `${LABEL_W}px 1fr ${FORECAST_W}px` }}
       >
         <div />
@@ -148,6 +167,19 @@ export function GanttChart({ project }: { project: ProjectFull }) {
             onHandlePointerDown={(clientX) => handleDrag(stage.id, clientX, dur)}
           />
         ))}
+
+        {showToday && todayPct !== null && (
+          <div
+            className="pointer-events-none absolute bottom-0 top-4 w-px bg-primary"
+            style={{
+              left: `calc(${LABEL_W}px + (100% - ${LABEL_W}px - ${FORECAST_W}px - 28px) * ${todayPct / 100})`,
+            }}
+          >
+            <span className="absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-primary px-2 py-0.5 text-[9px] font-bold text-primary-foreground">
+              HOJE
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2.5 rounded-lg bg-primary px-4 py-3 text-sm font-bold text-primary-foreground">

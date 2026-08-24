@@ -1,6 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { listProjects, getProject, computeProgress, listTeam } from "@/lib/api";
+import { useState } from "react";
+import {
+  listProjects,
+  getProject,
+  computeProgress,
+  listTeam,
+  type BacklogCategoria,
+} from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -13,14 +20,25 @@ export const Route = createFileRoute("/_authenticated/")({
   component: Dashboard,
 });
 
+const CATEGORIA_LABEL: Record<BacklogCategoria, string> = {
+  dashboard: "Dashboard",
+  app: "App",
+  melhoria: "Melhoria",
+};
+
 function Dashboard() {
   const { role } = useAuth();
   const isCoord = role === "coordenador";
+  const [categoriaFiltro, setCategoriaFiltro] = useState<BacklogCategoria | "todos">("todos");
   const { data: projects, isLoading } = useQuery({
     queryKey: ["projects"],
     queryFn: listProjects,
   });
   const { data: team } = useQuery({ queryKey: ["team"], queryFn: listTeam, enabled: isCoord });
+
+  const filtered = (projects ?? []).filter(
+    (p) => categoriaFiltro === "todos" || p.categoria === categoriaFiltro,
+  );
 
   return (
     <div className="space-y-8">
@@ -37,6 +55,26 @@ function Dashboard() {
         </div>
       </div>
 
+      {!isLoading && !!projects?.length && (
+        <div className="flex flex-wrap gap-2">
+          <FiltroPill
+            active={categoriaFiltro === "todos"}
+            onClick={() => setCategoriaFiltro("todos")}
+          >
+            Todos
+          </FiltroPill>
+          {(Object.keys(CATEGORIA_LABEL) as BacklogCategoria[]).map((c) => (
+            <FiltroPill
+              key={c}
+              active={categoriaFiltro === c}
+              onClick={() => setCategoriaFiltro(c)}
+            >
+              {CATEGORIA_LABEL[c]}
+            </FiltroPill>
+          ))}
+        </div>
+      )}
+
       {isLoading ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
@@ -45,15 +83,20 @@ function Dashboard() {
         </div>
       ) : !projects?.length ? (
         <EmptyState isCoord={isCoord} />
+      ) : filtered.length === 0 ? (
+        <Card className="p-10 text-center text-sm text-muted-foreground">
+          Nenhum projeto nessa categoria.
+        </Card>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {projects.map((p) => (
+          {filtered.map((p) => (
             <ProjectCard
               key={p.id}
               projectId={p.id}
               nome={p.nome}
               descricao={p.descricao}
               dataEntrega={p.data_entrega!}
+              categoria={p.categoria as BacklogCategoria | null}
               analystName={team?.find((t) => t.id === p.analista_id)?.nome ?? null}
             />
           ))}
@@ -63,17 +106,48 @@ function Dashboard() {
   );
 }
 
+function FiltroPill({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors ${
+        active
+          ? "bg-primary text-primary-foreground"
+          : "bg-accent text-accent-foreground hover:bg-accent/70"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+const CATEGORIA_COLOR: Record<BacklogCategoria, string> = {
+  dashboard: "bg-primary text-primary-foreground",
+  app: "bg-[#0891b2] text-white",
+  melhoria: "bg-[#60a5fa] text-white",
+};
+
 function ProjectCard({
   projectId,
   nome,
   descricao,
   dataEntrega,
+  categoria,
   analystName,
 }: {
   projectId: string;
   nome: string;
   descricao: string | null;
   dataEntrega: string;
+  categoria: BacklogCategoria | null;
   analystName: string | null;
 }) {
   const { data: full } = useQuery({
@@ -95,6 +169,13 @@ function ProjectCard({
       <Card className="group h-full p-5 transition-all hover:border-primary/40 hover:shadow-lg">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
+            {categoria && (
+              <span
+                className={`mb-1.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${CATEGORIA_COLOR[categoria]}`}
+              >
+                {CATEGORIA_LABEL[categoria]}
+              </span>
+            )}
             <h3 className="truncate font-display text-lg font-semibold">{nome}</h3>
             {descricao && (
               <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{descricao}</p>

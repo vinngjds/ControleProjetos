@@ -17,7 +17,6 @@ import {
 import { StagesEditor } from "@/components/StagesEditor";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { GanttChart } from "@/components/GanttChart";
-import { SubtaskDistribution } from "@/components/SubtaskDistribution";
 import { EffortImpactClassifier } from "@/components/EffortImpactClassifier";
 import {
   ArrowLeft,
@@ -86,25 +85,14 @@ function ProjectPage() {
       </Card>
     );
   }
-  if (!project.data_entrega) {
-    return (
-      <Card className="p-10 text-center">
-        <p className="text-sm text-muted-foreground">
-          Este item está no Backlog e ainda não tem prazo definido.
-        </p>
-        <Link to="/backlog" className="mt-4 inline-block text-primary underline">
-          Ir para o Backlog
-        </Link>
-      </Card>
-    );
-  }
-
+  const isBacklog = project.status === "backlog" || !project.data_entrega;
   const progress = computeProgress(project);
-  const dataEntrega = parseISO(project.data_entrega);
-  const dataInicio = parseISO(project.data_inicio);
-  const diasRestantes = differenceInDays(dataEntrega, new Date());
-  const diasTotais = Math.max(1, differenceInDays(dataEntrega, dataInicio));
-  const diasDecorridos = Math.max(0, differenceInDays(new Date(), dataInicio));
+  const dataEntrega = project.data_entrega ? parseISO(project.data_entrega) : null;
+  const dataInicio = project.data_inicio ? parseISO(project.data_inicio) : null;
+  const diasRestantes = dataEntrega ? differenceInDays(dataEntrega, new Date()) : null;
+  const diasTotais =
+    dataEntrega && dataInicio ? Math.max(1, differenceInDays(dataEntrega, dataInicio)) : null;
+  const diasDecorridos = dataInicio ? Math.max(0, differenceInDays(new Date(), dataInicio)) : 0;
   const ritmoD = diasDecorridos > 0 ? progress.diasFeitos / diasDecorridos : 0;
   const projecaoEntrega =
     ritmoD > 0 ? addDays(new Date(), Math.ceil(progress.diasRestantes / ritmoD)) : null;
@@ -195,26 +183,36 @@ function ProjectPage() {
           icon={<Calendar className="h-4 w-4" />}
           label="Prazo"
           value={
-            diasRestantes < 0
-              ? `${Math.abs(diasRestantes)}d atrasado`
-              : `${diasRestantes}d restantes`
+            diasRestantes === null
+              ? "—"
+              : diasRestantes < 0
+                ? `${Math.abs(diasRestantes)}d atrasado`
+                : `${diasRestantes}d restantes`
           }
-          sub={format(dataEntrega, "dd MMM yyyy", { locale: ptBR })}
-          tone={diasRestantes < 0 ? "destructive" : diasRestantes <= 7 ? "warning" : undefined}
+          sub={
+            dataEntrega ? format(dataEntrega, "dd MMM yyyy", { locale: ptBR }) : "Ainda em backlog"
+          }
+          tone={
+            diasRestantes !== null && diasRestantes < 0
+              ? "destructive"
+              : diasRestantes !== null && diasRestantes <= 7
+                ? "warning"
+                : undefined
+          }
         />
         <KPI
           icon={<Clock className="h-4 w-4" />}
           label="Projeção"
           value={projecaoEntrega ? format(projecaoEntrega, "dd MMM", { locale: ptBR }) : "—"}
           sub={
-            projecaoEntrega
+            projecaoEntrega && dataEntrega
               ? differenceInDays(projecaoEntrega, dataEntrega) <= 0
                 ? "Dentro do prazo"
                 : `${differenceInDays(projecaoEntrega, dataEntrega)}d além do prazo`
               : "Sem dados"
           }
           tone={
-            projecaoEntrega && differenceInDays(projecaoEntrega, dataEntrega) > 0
+            projecaoEntrega && dataEntrega && differenceInDays(projecaoEntrega, dataEntrega) > 0
               ? "warning"
               : undefined
           }
@@ -227,7 +225,7 @@ function ProjectPage() {
             Andamento geral
           </span>
           <span className="tabular-nums">
-            {Math.round((diasDecorridos / diasTotais) * 100)}% do tempo decorrido
+            {diasTotais ? Math.round((diasDecorridos / diasTotais) * 100) : 0}% do tempo decorrido
           </span>
         </div>
         <Progress value={progress.pct} className="h-2" />
@@ -238,8 +236,6 @@ function ProjectPage() {
           <TabsTrigger value="overview">Visão geral</TabsTrigger>
           <TabsTrigger value="classificacao">Classificação</TabsTrigger>
           <TabsTrigger value="kanban">Kanban</TabsTrigger>
-          <TabsTrigger value="distribuicao">Distribuição</TabsTrigger>
-          <TabsTrigger value="gantt">Cronograma</TabsTrigger>
           <TabsTrigger value="stages">Etapas e tarefas</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="mt-4">
@@ -251,16 +247,16 @@ function ProjectPage() {
         <TabsContent value="kanban" className="mt-4">
           <KanbanBoard project={project} />
         </TabsContent>
-        <TabsContent value="distribuicao" className="mt-4">
-          <SubtaskDistribution project={project} />
-        </TabsContent>
-        <TabsContent value="gantt" className="mt-4">
-          <GanttChart project={project} />
-        </TabsContent>
         <TabsContent value="stages" className="mt-4">
           <StagesEditor project={project} />
         </TabsContent>
       </Tabs>
+      {isBacklog && (
+        <p className="text-center text-xs text-muted-foreground">
+          Este projeto ainda está no Backlog. Classifique-o e ajuste o cronograma; ao aprovar, as
+          datas reais são calculadas a partir do início definido.
+        </p>
+      )}
     </div>
   );
 }
