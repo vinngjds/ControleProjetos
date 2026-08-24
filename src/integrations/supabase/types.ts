@@ -62,7 +62,6 @@ export type Database = {
       projects: {
         Row: {
           analista_id: string | null
-          area: string | null
           categoria: string | null
           created_at: string
           data_entrega: string | null
@@ -84,7 +83,6 @@ export type Database = {
         }
         Insert: {
           analista_id?: string | null
-          area?: string | null
           categoria?: string | null
           created_at?: string
           data_entrega?: string | null
@@ -106,7 +104,6 @@ export type Database = {
         }
         Update: {
           analista_id?: string | null
-          area?: string | null
           categoria?: string | null
           created_at?: string
           data_entrega?: string | null
@@ -141,7 +138,6 @@ export type Database = {
           created_at: string
           data_prevista_fim: string | null
           data_prevista_inicio: string | null
-          duracao_dias: number
           id: string
           nome: string
           ordem: number
@@ -152,7 +148,6 @@ export type Database = {
           created_at?: string
           data_prevista_fim?: string | null
           data_prevista_inicio?: string | null
-          duracao_dias?: number
           id?: string
           nome: string
           ordem?: number
@@ -163,7 +158,6 @@ export type Database = {
           created_at?: string
           data_prevista_fim?: string | null
           data_prevista_inicio?: string | null
-          duracao_dias?: number
           id?: string
           nome?: string
           ordem?: number
