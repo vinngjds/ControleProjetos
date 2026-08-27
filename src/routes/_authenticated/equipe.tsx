@@ -1,8 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { createTeamUser } from "@/lib/admin-users.functions";
 import { useAuth } from "@/lib/auth";
 import { listTeam, setUserRole, type AppRole } from "@/lib/api";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Users, ShieldCheck, User } from "lucide-react";
 import { toast } from "sonner";
@@ -16,6 +29,7 @@ function TeamPage() {
   const { role, user } = useAuth();
   const qc = useQueryClient();
   const isCoord = role === "coordenador";
+  const [creating, setCreating] = useState(false);
   const { data: team, isLoading } = useQuery({ queryKey: ["team"], queryFn: listTeam, enabled: isCoord });
 
   const mut = useMutation({
@@ -34,10 +48,17 @@ function TeamPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-3xl font-semibold">Equipe</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Gerencie papéis dos usuários cadastrados.</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-display text-3xl font-semibold">Equipe</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Crie usuários e gerencie os papéis da equipe.
+          </p>
+        </div>
+        <Button onClick={() => setCreating(true)}>+ Novo usuário</Button>
       </div>
+
+      <CreateUserDialog open={creating} onOpenChange={setCreating} />
 
       {isLoading ? (
         <div className="h-48 animate-pulse rounded-xl bg-muted" />
@@ -79,5 +100,92 @@ function TeamPage() {
         </Card>
       )}
     </div>
+  );
+}
+
+function CreateUserDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+}) {
+  const qc = useQueryClient();
+  const createUser = useServerFn(createTeamUser);
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [novoRole, setNovoRole] = useState<AppRole>("analista");
+
+  const mut = useMutation({
+    mutationFn: () =>
+      createUser({ data: { nome: nome.trim(), email: email.trim(), senha, role: novoRole } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["team"] });
+      qc.invalidateQueries({ queryKey: ["analysts"] });
+      toast.success("Usuário criado");
+      onOpenChange(false);
+      setNome("");
+      setEmail("");
+      setSenha("");
+      setNovoRole("analista");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const invalido = !nome.trim() || !email.trim() || senha.length < 8;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Novo usuário</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="u-nome">Nome</Label>
+            <Input id="u-nome" value={nome} onChange={(e) => setNome(e.target.value)} autoFocus />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="u-email">E-mail</Label>
+            <Input
+              id="u-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="u-senha">Senha (mín. 8 caracteres)</Label>
+            <Input
+              id="u-senha"
+              type="password"
+              value={senha}
+              onChange={(e) => setSenha(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Papel</Label>
+            <Select value={novoRole} onValueChange={(v) => setNovoRole(v as AppRole)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="analista">Analista</SelectItem>
+                <SelectItem value="coordenador">Coordenador</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button disabled={invalido || mut.isPending} onClick={() => mut.mutate()}>
+            {mut.isPending ? "Criando..." : "Criar usuário"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
