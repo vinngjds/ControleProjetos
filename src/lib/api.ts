@@ -638,3 +638,30 @@ export function computeProgress(project: ProjectFull) {
     pct,
   };
 }
+
+export async function listAssignableUsers(): Promise<TeamMember[]> {
+  return listTeam();
+}
+
+const CATEGORIA_LABEL: Record<string, string> = {
+  dashboard: "dashboard",
+  melhoria: "melhoria",
+  app: "aplicativo",
+};
+
+/**
+ * Gera uma descrição padrão (template, sem IA) a partir do nome do projeto.
+ * Usada para pré-preencher o campo Descrição — sempre editável pelo usuário.
+ */
+export function gerarDescricao(input: {
+  nome: string;
+  categoria?: string | null;
+  area?: string | null;
+}): string {
+  const nome = input.nome.trim();
+  if (!nome) return "";
+  const tipo = CATEGORIA_LABEL[input.categoria ?? ""] ?? "projeto";
+  const area = input.area?.trim();
+  const solicitante = area ? ` solicitado pela área ${area}` : "";
+  return `Projeto de ${tipo}${solicitante} para atender à demanda de ${nome}, com o objetivo de organizar e disponibilizar as informações necessárias para acompanhamento e tomada de decisão.`;
+}
