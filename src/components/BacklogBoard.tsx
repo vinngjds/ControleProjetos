@@ -4,12 +4,9 @@ import { useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
 import {
   listBacklog,
-  createBacklogItem,
   updateProject,
   deleteProject,
   promoteFromBacklog,
-  listAnalysts,
-  listProjects,
   type Project,
   type BacklogCategoria,
 } from "@/lib/api";
@@ -19,13 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
 import {
   Dialog,
   DialogContent,
@@ -44,7 +35,6 @@ const CATEGORIES: { id: BacklogCategoria; label: string; icon: typeof LayoutDash
 
 export function BacklogBoard() {
   const [tab, setTab] = useState<BacklogCategoria>("dashboard");
-  const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
   const qc = useQueryClient();
 
@@ -70,7 +60,6 @@ export function BacklogBoard() {
             Ideias e pedidos organizados por categoria, antes de entrar em Classificação.
           </p>
         </div>
-        <Button onClick={() => setCreating(true)}>+ Novo</Button>
       </div>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as BacklogCategoria)}>
@@ -123,7 +112,6 @@ export function BacklogBoard() {
         ))}
       </Tabs>
 
-      <CreateBacklogDialog open={creating} onOpenChange={setCreating} defaultCategoria={tab} />
       {editing && (
         <EditBacklogDialog
           project={editing}
@@ -132,135 +120,6 @@ export function BacklogBoard() {
         />
       )}
     </div>
-  );
-}
-
-function CreateBacklogDialog({
-  open,
-  onOpenChange,
-  defaultCategoria,
-}: {
-  open: boolean;
-  onOpenChange: (o: boolean) => void;
-  defaultCategoria: BacklogCategoria;
-}) {
-  const qc = useQueryClient();
-  const [nome, setNome] = useState("");
-  const [descricao, setDescricao] = useState("");
-  const [categoria, setCategoria] = useState<BacklogCategoria>(defaultCategoria);
-  const [area, setArea] = useState("");
-  const [relacionado, setRelacionado] = useState<string>("none");
-
-  const { data: analysts } = useQuery({ queryKey: ["analysts"], queryFn: listAnalysts });
-  const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: listProjects });
-  const [analistaId, setAnalistaId] = useState<string>("none");
-
-  const create = useMutation({
-    mutationFn: () =>
-      createBacklogItem({
-        nome: nome.trim(),
-        descricao: descricao.trim() || undefined,
-        categoria,
-        area: area.trim() || null,
-        analista_id: analistaId === "none" ? null : analistaId,
-        projeto_relacionado_id: relacionado === "none" ? null : relacionado,
-      }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["backlog"] });
-      toast.success("Item criado no Backlog");
-      onOpenChange(false);
-      setNome("");
-      setDescricao("");
-      setArea("");
-      setRelacionado("none");
-      setAnalistaId("none");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Novo item de Backlog</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Nome</Label>
-            <Input value={nome} onChange={(e) => setNome(e.target.value)} autoFocus />
-          </div>
-          <div className="space-y-2">
-            <Label>Categoria</Label>
-            <Select value={categoria} onValueChange={(v) => setCategoria(v as BacklogCategoria)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CATEGORIES.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Área solicitante</Label>
-            <Input
-              value={area}
-              onChange={(e) => setArea(e.target.value)}
-              placeholder="Ex.: Comercial, Marketing, Financeiro..."
-            />
-          </div>
-          {categoria === "melhoria" && (
-            <div className="space-y-2">
-              <Label>Projeto relacionado (opcional)</Label>
-              <Select value={relacionado} onValueChange={setRelacionado}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Nenhum" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nenhum</SelectItem>
-                  {(projects ?? []).map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.nome}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          <div className="space-y-2">
-            <Label>Responsável / solicitante sugerido</Label>
-            <Select value={analistaId} onValueChange={setAnalistaId}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Sem sugestão</SelectItem>
-                {(analysts ?? []).map((a) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.nome ?? a.id.slice(0, 8)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Descrição / observação</Label>
-            <Textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={3} />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button disabled={!nome.trim() || create.isPending} onClick={() => create.mutate()}>
-            {create.isPending ? "Criando..." : "Criar item"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }
 
