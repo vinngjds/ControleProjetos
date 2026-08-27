@@ -5,7 +5,7 @@
 Tela **+ Novo Projeto** (`/projetos/novo`) passa a criar o item já com status `backlog`:
 
 - Remover os campos **Data de início** e **Data de entrega**.
-- Remover a opção de template de etapas (as etapas e o cronograma são definidos depois, na promoção para Classificação).
+- Manter a opção de template de etapas (as etapas e o cronograma são definidos depois, na promoção para Classificação).
 - Campos que permanecem: Nome, Categoria, Área solicitante, Analista responsável, Descrição.
 - **Analista responsável** passa a incluir também coordenadores na lista, para que você possa se atribuir. Botão rápido "Atribuir a mim".
 - Ao salvar, o usuário é levado para o Backlog, na aba da categoria escolhida.
